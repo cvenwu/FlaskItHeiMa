@@ -1,0 +1,21 @@
+{{my_list}}
+{{my_list[0]}}
+{{ my_list.2 }}
+
+
+<br>
+{# 遍历列表的内容 #}
+{% for x in my_list %}
+{{ x }} <br>
+{% endfor %}
+
+
+<br>
+<h2> 大于3的数据内容进行显示 </h2>
+{# 遍历列表的内容 #}
+{% for x in my_list %}
+{# 数据大于3才可以进行显示 #}
+    {% if x > 3 %}
+        {{ x }} <br>
+    {% endif %}
+{% endfor %}
