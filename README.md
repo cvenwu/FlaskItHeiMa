@@ -186,4 +186,154 @@ for循环在html文件中遍历列表内容
 ```
 
 过滤器可以链式调用：{{ url_str | upper | reverse }}
+----------------------
 
+## Chapter 3
+
+
+### 一个简单的登录处理
+
+> 这里我们使用了flask中的request来对请求进行分析和处理，request用于获取请求的方式以及对应的数据
+
+```python
+
+
+```
+
+### 模板中动态传递消息
+> 有时我们希望可以在进行逻辑处理时，需要将问题呈现在模板中，此时也是可以的
+
+> 使用flash给模板传递消息
+
+
+```python
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    # request：请求对象，--》用于获取请求的方式以及对应的数据
+    # 1. 判断请求方式
+    if request.method == 'POST':
+        # 2, 获取请求参数
+        username = request.form.get('username')
+        password = request.form.get('password')
+        password2 = request.form.get('password2')
+
+        # 3. 判断参数是否填写 & 密码是否相同
+        if not all([username, password, password2]):
+            # print("参数不完整")
+            flash("参数不完整")
+        elif password != password2:
+            # 此时表示参数填写不完整并且密码也不相同
+            # print("密码不一致")
+            flash("密码不一致")
+        else:
+            flash("SUCCESS")
+            # return 'SUCCESS'
+
+        # return '%s %s %s' % (username, password, password2)
+
+    return render_template('index.html')
+```
+
+```html
+
+<form action="" method="post">
+        <label for="">用户名:</label><input type="text" name="username"><br>
+        <label for="">密码:</label><input type="password" name="password" id=""><br>
+        <label for="">确认密码:</label><input type="password" name="password2"><br>
+        <input type="submit" value="提交"><br>
+        {# 使用遍历获取闪现的消息 #}
+        {% for message in get_flashed_messages() %}
+            {{ message }}
+        {% endfor %}
+    </form>
+```
+
+
+
+#### Flask 使用消息闪烁（flash）报错：
+> 使用flask传递消息的时候，flask希望消息是保密的，消息需要加密，需要设置SECRET_KEY,做加密消息的混淆
+Flask 使用消息flash报错：The session is unavailable because no secret key was set
+
+解决方法:设置Flask实例的SECTET_KEY属性。代码如下：
+```python
+from flask import Flask
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = '123456'
+
+```
+
+
+#### 编码问题
+
+> 当使用中文时编码出现问题，我们可以在字符串前面加上u
+``` python
+flash(u"密码不一致")
+```
+
+
+
+### WTF简介
+
+#### 在HTML中使用表单
+
+
+```html
+    <form action="" method="post">
+        <label for="">用户名:</label><input type="text" name="username"><br>
+        <label for="">密码:</label><input type="password" name="password" id=""><br>
+        <label for="">确认密码:</label><input type="password" name="password2"><br>
+        <input type="submit" value="提交"><br>
+    </form>
+```
+
+#### 使用Flask-WTF实现表单
+
+> 需要自定义表单类，使用WTF实现表单
+
+1. 自定义表单类，每个标签内容，以及对应的验证函数
+2. 编写对应表单的视图界面
+3. 编写业务逻辑
+
+
+
+```python
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, EqualTo
+class LoginForm(FlaskForm):
+    # 代表我们的用户名输入框
+    # validators是一个列表
+    # DataRequired()是一个函数
+    username = StringField('用户名', validators=[DataRequired()])
+    password = PasswordField(label='密码', validators=[DataRequired()])
+    # EqualTo() 中有2个参数，第1个参数指定和谁进行比较，第2个参数是message，指示出错如何处理
+    password2 = PasswordField(label='确认密码', validators=[DataRequired(),
+                                            EqualTo('password', message='密码填入不一致')])
+    submit = SubmitField('提交')
+```
+
+**CSRF是跨站请求伪造**，如果在验证的时候没有csrt_token将会报错，
+
+```python
+<form action="" method="post">
+        {# 设置csrf_token #}
+        {{ form.csrf_token() }} {# 跨站请求伪造，没有这行代码会报错 #}
+        {{ form.username.label }} {{ form.username }} <br>
+        {{ form.password.label }} {{ form.password }} <br>
+        {{ form.password2.label }} {{ form.password2 }} <br>
+        {{ form.input }} <br>
+</form>
+
+```
+
+
+使用flask中的wtf验证，除了可以帮助我们验证逻辑之外，还可以帮助我们验证没有编写的业务逻辑，所以，下面业务代码将会报错
+
+
+验证函数可以写多个，是一个列表
+
+### WTF表单显示
+
+### WTF表单验证
