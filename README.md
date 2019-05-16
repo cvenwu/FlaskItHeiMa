@@ -337,3 +337,266 @@ class LoginForm(FlaskForm):
 ### WTF表单显示
 
 ### WTF表单验证
+
+------
+
+## Chapter 4
+
+### Flask-SQLAlchemy 扩展
+> SQLAlchemy是对数据库的抽象，通过ORM映射使得我们不用编写SQL语句，其实也是通过Python的面向对象的思想来操作数据库
+
+> SQLAlchemy 是一个关系型数据库框架，它提供了高层的ORM和底层原生数据库的操作，flask-sqlalchemy是一个简化了的SQLAlchemy操作的flask扩展
+
+#### 使用Flask-SQLAlchemy管理数据库
+
+
+使用步骤：
+1. **导入扩展**：from flask_sqlalchemy import SQLAlchemy
+2. 配置
+3. 创建SQLAlchemy对象
+
+> 注意：连接之前确保连接的数据库已经存在
+
+```python
+# 导入扩展
+from flask_sqlalchemy import SQLAlchemy
+# 数据库名称://用户名:密码@ip地址/数据库名
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:@127.0.0.1/flask_sql_demo'
+# 创建SQLAlchemy对象，创建的时候传入app
+db = SQLAlchemy(app)
+
+```
+
+
+### 定义数据模型
+
+> 在前面我们配置好数据库连接之后，接下来就可以使用SQLAlchemy对数据库进行操作，通过面向对象的思维来操作数据库
+
+步骤：
+1. 每张表对应一个模型类，编写对应的模型类
+2. 创建表
+```python
+# 创建表之前删除已有的表格
+db.drop_all()
+# 实际生产环境中使用命令行迁移的方式来创建表
+db.create_all()
+
+```
+
+例如下面的两张表格roles与users
+roles字段: id(主键) name
+users字段：id(主键) name role_id(外键)
+
+**当我们创建一个类的时候，如何会把普通类当做SQLAlchemy中的模型处理：每个类需要继承db.Model**
+
+**定义外键的时候需要使用 表名.字段名 指定**
+```python
+
+'''
+两张表：角色(管理员/普通用户)
+      用户(角色ID)
+'''
+# 如何才能把类当做模型去处理：需要继承db.Model才会被当做模型处理
+class Role(db.Model):
+    # 定义表和字段
+    ## 定义表名
+    __tablename__ = 'roles'
+    ## 定义字段,db.Column就表示是一个字段
+    id = db.Column(db.Integer, primary_key=True)
+    ## 定义长度为16字节的name
+    name = db.Column(db.String(16), unique=True)
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(16), unique=True)
+    # 声明外键, 使用 表名.id 来标识外键 db.ForeignKey('roles.id'))
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+```
+
+#### SQLAlchemy中字段类型与python对应的字段类型
+
+类型名 | python中的数据类型 | 说明
+Integer | int | 普通整数，一般是32位
+
+#### 常用的SQLAlchemy列选项
+
+#### 常用的SQLAlchemy关系选项
+<table><th><tr><td>选项名</td><td>说明</td></tr></th><tbody>
+        <tr><td>backref</td><td>在关系的另一模型中添加反向引用</td></tr>
+        <tr><td>primary join</td><td>明确指定两个模型之间使用的联结条件</td></tr>
+        <tr><td>uselist</td><td>如果为False,不使用列表，而是用标量值</td></tr>
+        <tr><td>order_by</td><td>指定关系中记录的排序方式</td></tr>
+        <tr><td>secondary</td><td>指定多对多记录的排序方式</td></tr>
+        <tr><td>secondary join</td><td>在SQLAlchemy中无法自行决定时，指定多对多关系中的二级联结条件</td></tr>
+</tbody>
+</table>
+
+
+### 数据库的基本操作
+> 在SQLAlchemy中，插入、修改、删除操作都交给数据库会话进行管理
+
+
+#### 基本概念
+会话使用db.session进行表示，在准备把数据写入到数据库之前，需要添加到会话并且使用commit()方法提交会话
+SQLAlchemy中，查询操作是通过query对象操作数据。**最基本的查询会返回所有数据，可以通过过滤器实现更精确的数据查询**
+
+```python
+db.session.add(role) # 添加到数据库的session中
+db.session.add_all([user1, user2]) # 添加多个信息到session中
+db.session.commit() # 提交数据库的修改
+db.session.rollback() # 数据库的回滚操作
+db.session.delete() # 删除数据库(需跟上commit)
+
+```
+
+####  添加数据
+> 可以使用add_all() 传入一个列表参数来添加多个数据
+
+```python
+# 插入一个角色
+    role = Role(name='yirufeng')
+    db.session.add(role)
+    db.session.commit()
+
+    # 插入一个用户名
+    user = User(name='itheima', role_id=role.id)
+    db.session.add(user)
+    db.session.commit()
+```
+
+
+#### 修改数据
+
+
+```python
+ # 修改用户的属性, 添加只添加一次就可以了，剩下的直接修改之后commit就可以了
+    user.name = 'chengxuyuan'
+    db.session.commit()
+```
+
+#### 删除数据
+
+
+```python
+# 删除用户
+    db.session.delete(user)
+    db.session.commit()
+```
+
+
+完整代码如下：
+```python
+
+from flask import Flask, render_template
+# 导入sqlalchemy扩展
+from flask_sqlalchemy import SQLAlchemy
+
+import pymysql
+
+
+app = Flask(__name__)
+app.secret_key = '123456'
+
+# 下面一行代码是Flask的数据库设置
+# 数据库名称://用户名:密码@ip地址/数据库名
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:123456@localhost:3306/flask_sql_demo'
+# 下面一行代码是Flask动态追踪修改设置，如果未设置只会提示警告，并不会报错
+# 如果启用动态追踪修改设置，将会消耗部分性能，并且在未来版本中会移除掉
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+pymysql://root:@localhost:3306/movie"
+
+db = SQLAlchemy(app)
+
+
+
+'''
+两张表：角色(管理员/普通用户)
+      用户(角色ID)
+'''
+# 如何才能把类当做模型去处理：需要继承db.Model才会被当做模型处理
+class Role(db.Model):
+    # 定义表和字段
+    ## 定义表名
+    __tablename__ = 'roles'
+    ## 定义字段,db.Column就表示是一个字段
+    id = db.Column(db.Integer, primary_key=True)
+    ## 定义长度为16字节的name
+    name = db.Column(db.String(16), unique=True)
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(16), unique=True)
+    # 声明外键, 使用 表名.id 来标识外键 db.ForeignKey('roles.id'))
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    # 首先删除数据库的所有表
+    db.drop_all()
+    # 其次创建数据库中所需要的表
+    db.create_all()
+
+    # 插入一个角色
+    role = Role(name='yirufeng')
+    db.session.add(role)
+    db.session.commit()
+
+    # 插入一个用户名
+    user = User(name='itheima', role_id=role.id)
+    db.session.add(user)
+    db.session.commit()
+
+    # 修改用户的属性, 添加只添加一次就可以了，剩下的直接修改之后commit就可以了
+    user.name = 'chengxuyuan'
+    db.session.commit()
+
+    # 删除用户
+    db.session.delete(user)
+    db.session.commit()
+
+
+    app.run(debug=True)
+
+```
+
+
+### 模型之间的关联
+
+#### 一对多
+
+
+比如User希望有role属性，但是这个属性的定义需要在另一个模型中定义
+
+> 在一的一方添加关联
+users = 
+
+
+
+
+### 数据库查询操作
+
+例子：
+1. 查询全部用户：User.query.all()
+2. 查询有多少个用户：User.query.count()
+3. 查询第一个用户：User.query.first()
+4. 查询id为4的用户：User.query.get(4)
+5. 查询id为4的用户：User.query.filter_by(id=4).first()
+6. 查询id为4的用户：User.query.filter(User, id==4).first()
+7. 查询id为4的用户：User.query.filter_by(id=4).first()
+
+
+**filter_by 格式： 属性=值**
+**filter格式： 属性==值** filter功能更加强大，可以实现更多的查询条件，支持比较运算符
+
+#### 查询过滤器
+> 查询过滤器用于对数据进行筛选，
+
+#### 查询执行器
+> 查询执行器用于执行查询操作
