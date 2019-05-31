@@ -59,6 +59,40 @@ class User(db.Model):
     #
 
 
+# 定义书和作者模型
+
+# 作者模型
+class Author(db.Model):
+    __tablename__ = 'author'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True)
+
+    # 关系引用
+    # books是给自己(Author模型)用的, author是给Book模型用的
+    books = db.relationship('Book', backref='author')
+
+    def __repr__(self):
+        return "Author: %s" % self.name
+
+
+# 书模型
+class Book(db.Model):
+    __tablename__ = 'book'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True)
+
+    # 定义外键
+    author_id = db.Column(db.Integer, db.ForeignKey('authors.id'))
+
+    def __repr__(self):
+        return "Book: %s %s" % (self.name, self.author_id)
+
+
+@app.route('/')
+def hello_world():
+    return render_template('books.html')
+
+
 
 @app.route('/')
 def index():
@@ -87,6 +121,26 @@ if __name__ == '__main__':
     # 删除用户
     db.session.delete(user)
     db.session.commit()
+	
+	# 生成数据
+    au1 = Author(name='老王')
+    au2 = Author(name='老惠')
+    au3 = Author(name='老刘')
+    # 把数据提交给用户会话
+    db.session.add_all([au1, au2, au3])
+    # 提交会话
+    db.session.commit()
+    print(db.session)
+    print('1')
 
+    bk1 = Book(name='老王回忆录', author_id=au1.id)
+    bk2 = Book(name='我读书少，你别骗我', author_id=au1.id)
+    bk3 = Book(name='如何才能让自己更骚', author_id=au2.id)
+    bk4 = Book(name='怎样征服美丽少女', author_id=au3.id)
+    bk5 = Book(name='如何征服英俊少男', author_id=au3.id)
+    # 将数据提交给会话
+    db.session.add_all([bk1, bk2, bk3. bk4, bk5])
+    # 提交会话
+    db.session.commit()
 
     app.run(debug=True)
